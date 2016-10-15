@@ -24,6 +24,12 @@ $html_head = '
     <!-- Bootstrap Theme -->
     <link href="https://cdn.jsdelivr.net/bootswatch/3.3.7/yeti/bootstrap.min.css" rel="stylesheet">
 
+    <!-- Fullcalendar CSS -->
+    <link href="fullcalendar-scheduler-1.4.0/lib/fullcalendar.min.css" rel="stylesheet">
+
+    <!-- Fullcalendar Scheduler CSS -->
+    <link href="fullcalendar-scheduler-1.4.0/scheduler.min.css" rel="stylesheet">
+
     <!-- Custom CSS -->
     <style>
     body {
@@ -111,6 +117,21 @@ $html_view_foot = '
     <!-- /.container -->
 ';
 
+function generate_options() {
+    $options = '';
+    $format = 'Y-m-d\TH:i:s';
+    $format2 = 'hA d-m-Y';
+    $time_list = array();
+    $base = '2016-09-07 00:00:00';
+    for($i=0; $i<24; $i++){
+        $time_list[] = strtotime($base.' +'.$i.' hour');
+    }
+    foreach($time_list as $item) {
+        $options = $options.'<option value="'.date($format, $item).'">'.date($format2, $item).'</option>';
+    }
+    return $options;
+}
+
 $html_add = '
     <div class="container" id="add">
 
@@ -119,28 +140,20 @@ $html_add = '
                 <h2>Add Booking</h2>
                     <form action="'.$_SERVER['PHP_SELF'].'" method="post">
                         <div class="form-group">
-                            <label for="name">Name:</label>
-                            <input type="text" class="form-control" name="user">
+                            <label for="title">Name:</label>
+                            <input type="text" class="form-control" name="title">
                         </div>
                         <div class="form-group">
-                            <label for="eID">Equipment:</label>
-                            <input type="text" class="form-control" name="eID">
+                            <label for="resourceId">Equipment:</label>
+                            <input type="text" class="form-control" name="resourceId">
                         </div>
                         <div class="form-group">
-                            <label for="timeslot">Timeslot:</label>
-                            <select class="form-control" name="timeslot">
-                                <option>1</option>
-                                <option>2</option>
-                                <option>3</option>
-                                <option>4</option>
-                                <option>5</option>
-                                <option>6</option>
-                                <option>7</option>
-                                <option>8</option>
-                                <option>9</option>
-                                <option>10</option>
-                                <option>11</option>
-                                <option>12</option>
+                            <label for="start">Timeslot:</label>
+                            <select class="form-control" name="start">
+                                '.generate_options().'
+                            </select>
+                            <select class="form-control" name="end">
+                                '.generate_options().'
                             </select>
                         </div>
                         <button type="submit" name="submit" class="btn btn-default">Submit</button>
@@ -152,6 +165,8 @@ $html_add = '
     </div>
     <!-- /.container -->
 ';
+
+$event_data_tag = '<script src="events.js"></script>';
 
 $html_footer = '
     <div class="navbar navbar-default">
@@ -166,6 +181,13 @@ $html_footer = '
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <!-- MomentJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.15.1/moment.min.js"></script>
+    <!-- Fullcalendar JS -->
+    <script src="fullcalendar-scheduler-1.4.0/lib/fullcalendar.min.js"></script>
+    <!-- Fullcalendar Scheduler JS -->
+    <script src="fullcalendar-scheduler-1.4.0/scheduler.min.js"></script>
+    '.$event_data_tag.'
+    <!-- Utility -->
+    <script src="utility.js"></script>
 </body>
 
 </html>
@@ -229,7 +251,7 @@ echo $html_head.$html_nav.$html_banner;
 
 // Form POST actions
 if(isset($_POST['submit'])) {
-    echo '<div class="alert alert-warning text-center">New entry added: <code>'.$_POST['user'].'</code> booked <code>'.$_POST['eID'].'</code> at <code>'.$_POST['timeslot'].'</code>'.$close_button.'</div>';
+    echo '<div class="alert alert-warning text-center">New entry added: <code>'.$_POST['title'].'</code> booked <code>'.$_POST['resourceId'].'</code> from <code>'.$_POST['start'].'</code> to <code>'.$_POST['end'].'</code>'.$close_button.'</div>';
 }
 
 $link = mysql_connect($db_config['server'], $db_config['username'], $db_config['password'])  
@@ -254,9 +276,10 @@ function create(){
     $close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
 	$create_table = 'CREATE TABLE IF NOT EXISTS booking (
 	id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY, 
-	user VARCHAR(30) NOT NULL,
-	eID VARCHAR(30) NOT NULL,
-	timeslot INT(6),
+	title VARCHAR(30) NOT NULL,
+	resourceId VARCHAR(30) NOT NULL,
+	start DATETIME DEFAULT NULL,
+    end DATETIME DEFAULT NULL,
 	created DATETIME DEFAULT NULL
 	)';
 
@@ -279,32 +302,52 @@ function insert($data) {
     $close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
 	foreach($data as $item) {
 		mysql_insert('booking', array(
-		    'user' => $item["user"],
-		    'eID' => $item["eID"],
-		    'timeslot' => $item["timeslot"],
-		    'created' => time(),
+		    'title' => $item["title"],
+		    'resourceId' => $item["resourceId"],
+		    'start' => $item["start"],
+            'end' => $item["end"],
+		    'created' => date('Y-m-d H:i:s'),
 		));
 	}
     echo '<div class="alert alert-info text-center">'.sizeof($data).$close_button.' record(s) added.</div>';
 }
 
+function delete($id) {
+    mysql_query("DELETE FROM booking WHERE id=".$id);
+}
+
+function create_event_json(){
+    $json = get_json();
+    $filename = 'events.js';
+    $fp = fopen($filename, 'w+');
+    fwrite($fp, "var event_data = '".$json."';");
+    fclose($fp);
+}
+
+function delete_button($id){
+    echo '<td><form action="'.$_SERVER['PHP_SELF'].'" method="post">
+        <input type="hidden" name="to_delete" value="'.$id.'">
+        <button type="submit" name="delete" class="btn btn-danger btn-xs"><span class="glyphicon glyphicon-trash"></span></button>
+    </form></td>';
+}
+
 function get($sql) {
 	$result = mysql_query("SELECT * FROM booking");
-	if($result){
+    $keys = mysql_query("SHOW COLUMNS FROM booking");
+	if(mysql_num_rows($result)>0){
         echo "<table class='table'>";
         echo "<thead><tr>";
-        echo "<th>id</th>";
-        echo "<th>user</th>";
-        echo "<th>eID</th>";
-        echo "<th>timeslot</th>";
+        while ($row = mysql_fetch_assoc($keys)) {
+            echo "<th>".$row['Field']."</th>";
+        }
         echo "</tr></thead>";
-		while($row = mysql_fetch_array($result))
+		while($row = mysql_fetch_array($result, MYSQL_NUM))
 		{
 			echo "<tr>";
-            echo "<td>".$row["id"]."</td>";
-            echo "<td>".$row["user"]."</td>";
-            echo "<td>".$row["eID"]."</td>";
-            echo "<td>".$row["timeslot"]."</td>";
+            foreach($row as $rowitem){
+                echo "<td>".$rowitem."</td>";
+            }
+            delete_button($row[0]);
 			echo "</tr>";
 		}
         echo "</table>";
@@ -318,19 +361,17 @@ function get_json() {
     $result = mysql_query("SELECT * FROM booking");
     $raw = array();
     if($result){
-        while($row = mysql_fetch_array($result))
+        while($row = mysql_fetch_array($result, MYSQL_ASSOC))
         {
             $raw[] = array(
-                'id' => $row["id"],
-                'user' => $row['user'],
-                'eID' => $row['eID'],
-                'timeslot' => $row['timeslot'],
+                'id' => $row['id'],
+                'title' => $row['title'],
+                'resourceId' => $row['resourceId'],
+                'start' => $row['start'],
+                'end' => $row['end'],
                 'created' => $row['created'],
             );
         }
-        $raw[] = array(
-            'retrieved' => time(),
-        );
     }
     return array2json($raw);
 }
@@ -346,39 +387,47 @@ $getjsonbtn = '
 ';
 
 if(!isset($_POST['submit'])) {
-    clear();
-    create();
+    // Enable for clean start
+    // clear();
+    // create();
 }
 
 echo $html_view_head;
 
 if(!isset($_POST['submit'])){
-$dummy_data = array(
-	array(
-		'user' => 'Martin Wong',
-		'eID' => md5('Solder Ball BumperPacTech'),
-		'timeslot' => 11,
-	),
-	array(
-		'user' => 'Xifun Ye',
-		'eID' => md5('Reflow Soldering OvenAshai'),
-		'timeslot' => 4,
-	),
-);
-
-insert($dummy_data);
-
+    $dummy_data = array(
+    	array(
+    		'title' => 'Martin Wong',
+    		'resourceId' => md5('Solder Ball Bumper PacTech'),
+    		'start' => '2016-09-07T02:00:00',
+            'end' => '2016-09-07T07:00:00',
+    	),
+    	array(
+    		'title' => 'Xifun Ye',
+    		'resourceId' => md5('Reflow Soldering Oven Ashai'),
+    		'start' => '2016-09-07T01:00:00',
+            'end' => '2016-09-07T02:00:00',
+    	),
+    );
 }
 
 if(isset($_POST['submit'])) {
     insert(array(array(
-        'user' => $_POST['user'],
-        'eID' => md5($_POST['eID']),
-        'timeslot' => $_POST['timeslot'],
+        'title' => $_POST['title'],
+        'resourceId' => $_POST['resourceId'],
+        'start' => $_POST['start'],
+        'end' => $_POST['end'],
     )));
+    create_event_json();
 }
 
+if(isset($_POST['delete'])) {
+    delete($_POST['to_delete']);
+}
+
+// insert($dummy_data);
 get();
+create_event_json();
 
 echo $getjsonbtn;
 
@@ -395,7 +444,15 @@ echo $html_view_foot;
 
 echo '<hr />';
 
+echo '<div class="container"><div class="row"><div class="col-md-12" id="calendar"></div></div></div>';
+
+echo '<hr />';
+
 echo $html_add;
+
+echo '<hr />';
+
+echo $client_add;
 
 echo '<hr />';
 
