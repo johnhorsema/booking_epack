@@ -1,8 +1,14 @@
 #!/usr/local/bin/php 
 <?php
+//Debugging
+ini_set('display_startup_errors', 1);
+ini_set('display_errors', 1);
+error_reporting(-1);
+
+include('JSON.php');
 
 $php_ver = 'Current PHP version: ' . phpversion();
-$site_title = 'Booking System - EPACK Lab';
+$site_title = 'Equipment Booking System - EPACK Lab';
 
 $html_head = '
 <!DOCTYPE html>
@@ -72,6 +78,14 @@ $html_nav = '
                     <li>
                         <a href="#add">Add Booking</a>
                     </li>
+                    <li>
+                        <a target="_blank" href="resources_md5.php">Reset Resources</a>
+                    </li>
+                </ul>
+                <ul class="nav navbar-nav pull-right">
+                    <li>
+                        <a href="http://ihome.ust.hk/~jcema/epack">EPACK Lab</a>
+                    </li>
                 </ul>
             </div>
             <!-- /.navbar-collapse -->
@@ -117,19 +131,19 @@ $html_view_foot = '
     <!-- /.container -->
 ';
 
-function generate_options() {
-    $options = '';
-    $format = 'Y-m-d\TH:i:s';
-    $format2 = 'hA d-m-Y';
-    $time_list = array();
-    $base = '2016-09-07 00:00:00';
-    for($i=0; $i<24; $i++){
-        $time_list[] = strtotime($base.' +'.$i.' hour');
+function generate_resources() {
+    $json_service = new Services_JSON();
+    $input_file = 'resources_md5.json';
+    $string = file_get_contents($input_file);
+    $json_a = $json_service->decode($string);
+    $result = '';
+    if(!count($json_a)){
+        return '<option>No Resource(s) found!</option>';
     }
-    foreach($time_list as $item) {
-        $options = $options.'<option value="'.date($format, $item).'">'.date($format2, $item).'</option>';
+    foreach($json_a as $item) {
+        $result = $result.'<option value="'.$item->md5.'">'.$item->title.'</option>';
     }
-    return $options;
+    return $result;
 }
 
 $html_add = '
@@ -145,15 +159,16 @@ $html_add = '
                         </div>
                         <div class="form-group">
                             <label for="resourceId">Equipment:</label>
-                            <input type="text" class="form-control" name="resourceId">
+                            <select class="form-control" name="resourceId">
+                                '.generate_resources().'
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label for="start">Timeslot:</label>
-                            <select class="form-control" name="start">
-                                '.generate_options().'
-                            </select>
-                            <select class="form-control" name="end">
-                                '.generate_options().'
+                            <label for="slot">Timeslot:</label>
+                            <select class="form-control" name="slot">
+                                <option value="AM">Morning</option>
+                                <option value="NOON">Afternoon</option>
+                                <option value="PM">Night</option>
                             </select>
                         </div>
                         <button type="submit" name="submit" class="btn btn-default">Submit</button>
@@ -166,12 +181,13 @@ $html_add = '
     <!-- /.container -->
 ';
 
-$event_data_tag = '<script src="events.js"></script>';
-
 $html_footer = '
     <div class="navbar navbar-default">
         <div class="container">
-            <p class="navbar-text pull-left">© 2016 - System Built By JohnM
+            <p class="navbar-text pull-left">© 2016 - EPACK Lab Equipment Booking System
+            </p>
+            <p class="navbar-text pull-right">
+                <a href="http://ihome.ust.hk/~jcema/epack">EPACK Lab</a>
             </p>
         </div>
     </div>
@@ -185,12 +201,22 @@ $html_footer = '
     <script src="fullcalendar-scheduler-1.4.0/lib/fullcalendar.min.js"></script>
     <!-- Fullcalendar Scheduler JS -->
     <script src="fullcalendar-scheduler-1.4.0/scheduler.min.js"></script>
-    '.$event_data_tag.'
     <!-- Utility -->
     <script src="utility.js"></script>
 </body>
 
 </html>
+';
+
+$client_add = '
+<div class="container">
+        <div class="row">
+            <div class="col-lg-12 text-left">
+                <h2>Booking Helper</h2>
+
+            </div>
+        </div>
+</div>
 ';
 
 $close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
@@ -205,53 +231,35 @@ $db_config = array(
 	'charset' => 'utf8',
 );
 
-function array2json($arr) { 
-    if(function_exists('json_encode')) return json_encode($arr); //Lastest versions of PHP already has this functionality.
-    $parts = array(); 
-    $is_list = false; 
+function generate_start_end($s, $e, $d) {
+    $format = 'Y-m-d\TH:i:s';
+    $tuple = array(
+        'start' => date($format, strtotime($d.' '.$s.':00:00')),
+        'end' => date($format, strtotime($d.' '.$e.':00:00'))
+    );
+    return $tuple;
+}
 
-    //Find out if the given array is a numerical array 
-    $keys = array_keys($arr); 
-    $max_length = count($arr)-1; 
-    if(($keys[0] == 0) and ($keys[$max_length] == $max_length)) {//See if the first key is 0 and last key is length - 1
-        $is_list = true; 
-        for($i=0; $i<count($keys); $i++) { //See if each key correspondes to its position 
-            if($i != $keys[$i]) { //A key fails at position check. 
-                $is_list = false; //It is an associative array. 
-                break; 
-            } 
-        } 
-    } 
-
-    foreach($arr as $key=>$value) { 
-        if(is_array($value)) { //Custom handling for arrays 
-            if($is_list) $parts[] = array2json($value); /* :RECURSION: */ 
-            else $parts[] = '"' . $key . '":' . array2json($value); /* :RECURSION: */ 
-        } else { 
-            $str = ''; 
-            if(!$is_list) $str = '"' . $key . '":'; 
-
-            //Custom handling for multiple data types 
-            if(is_numeric($value)) $str .= $value; //Numbers 
-            elseif($value === false) $str .= 'false'; //The booleans 
-            elseif($value === true) $str .= 'true'; 
-            else $str .= '"' . addslashes($value) . '"'; //All other things 
-            // :TODO: Is there any more datatype we should be in the lookout for? (Object?) 
-
-            $parts[] = $str; 
-        } 
-    } 
-    $json = implode(',',$parts); 
-     
-    if($is_list) return '[' . $json . ']';//Return numerical JSON 
-    return '{' . $json . '}';//Return associative JSON 
+function convert_slot($input, $date) {
+    switch($input) {
+        case 'AM':
+            $tuple = generate_start_end('09','11',$date);
+            break;
+        case 'NOON':
+            $tuple = generate_start_end('13','15',$date);
+            break;
+        case 'PM':
+            $tuple = generate_start_end('16','18',$date);
+            break;
+    }
+    return $tuple;
 }
 
 echo $html_head.$html_nav.$html_banner;
 
 // Form POST actions
 if(isset($_POST['submit'])) {
-    echo '<div class="alert alert-warning text-center">New entry added: <code>'.$_POST['title'].'</code> booked <code>'.$_POST['resourceId'].'</code> from <code>'.$_POST['start'].'</code> to <code>'.$_POST['end'].'</code>'.$close_button.'</div>';
+    echo '<div class="alert alert-warning text-center">New entry added: <code>'.$_POST['title'].'</code> booked <code>'.$_POST['resourceId'].'</code>'.$close_button.'</div>';
 }
 
 $link = mysql_connect($db_config['server'], $db_config['username'], $db_config['password'])  
@@ -277,7 +285,7 @@ function create(){
 	$create_table = 'CREATE TABLE IF NOT EXISTS booking (
 	id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY, 
 	title VARCHAR(30) NOT NULL,
-	resourceId VARCHAR(30) NOT NULL,
+	resourceId VARCHAR(32) NOT NULL,
 	start DATETIME DEFAULT NULL,
     end DATETIME DEFAULT NULL,
 	created DATETIME DEFAULT NULL
@@ -301,11 +309,12 @@ function mysql_insert($table, $inserts) {
 function insert($data) {
     $close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
 	foreach($data as $item) {
+        $start_end = convert_slot($item['slot'],'2016-09-07');
 		mysql_insert('booking', array(
-		    'title' => $item["title"],
-		    'resourceId' => $item["resourceId"],
-		    'start' => $item["start"],
-            'end' => $item["end"],
+		    'title' => $item['title'],
+		    'resourceId' => $item['resourceId'],
+		    'start' => $start_end['start'],
+            'end' => $start_end['end'],
 		    'created' => date('Y-m-d H:i:s'),
 		));
 	}
@@ -316,11 +325,31 @@ function delete($id) {
     mysql_query("DELETE FROM booking WHERE id=".$id);
 }
 
+function get_json() {
+    $json_service = new Services_JSON();
+    $result = mysql_query("SELECT * FROM booking");
+    $raw = array();
+    if($result){
+        while($row = mysql_fetch_array($result, MYSQL_ASSOC))
+        {
+            $raw[] = array(
+                'id' => $row['id'],
+                'title' => $row['title'],
+                'resourceId' => $row['resourceId'],
+                'start' => $row['start'],
+                'end' => $row['end'],
+                'created' => $row['created'],
+            );
+        }
+    }
+    return $json_service->prettyPrint($json_service->encode($raw));
+}
+
 function create_event_json(){
     $json = get_json();
-    $filename = 'events.js';
+    $filename = 'events.json';
     $fp = fopen($filename, 'w+');
-    fwrite($fp, "var event_data = '".$json."';");
+    fwrite($fp, $json);
     fclose($fp);
 }
 
@@ -331,9 +360,9 @@ function delete_button($id){
     </form></td>';
 }
 
-function get($sql) {
-	$result = mysql_query("SELECT * FROM booking");
-    $keys = mysql_query("SHOW COLUMNS FROM booking");
+function get($sql_val, $sql_key) {
+	$result = mysql_query($sql_val);
+    $keys = mysql_query($sql_key);
 	if(mysql_num_rows($result)>0){
         echo "<table class='table'>";
         echo "<thead><tr>";
@@ -357,25 +386,6 @@ function get($sql) {
 	}
 }
 
-function get_json() {
-    $result = mysql_query("SELECT * FROM booking");
-    $raw = array();
-    if($result){
-        while($row = mysql_fetch_array($result, MYSQL_ASSOC))
-        {
-            $raw[] = array(
-                'id' => $row['id'],
-                'title' => $row['title'],
-                'resourceId' => $row['resourceId'],
-                'start' => $row['start'],
-                'end' => $row['end'],
-                'created' => $row['created'],
-            );
-        }
-    }
-    return array2json($raw);
-}
-
 $getjsonbtn = '
         <div class="row">
             <div class="col-lg-12 text-right">
@@ -387,36 +397,19 @@ $getjsonbtn = '
 ';
 
 if(!isset($_POST['submit'])) {
-    // Enable for clean start
+    // CLEANSTART: Enable for clean start
     // clear();
+    // drop();
     // create();
 }
 
 echo $html_view_head;
 
-if(!isset($_POST['submit'])){
-    $dummy_data = array(
-    	array(
-    		'title' => 'Martin Wong',
-    		'resourceId' => md5('Solder Ball Bumper PacTech'),
-    		'start' => '2016-09-07T02:00:00',
-            'end' => '2016-09-07T07:00:00',
-    	),
-    	array(
-    		'title' => 'Xifun Ye',
-    		'resourceId' => md5('Reflow Soldering Oven Ashai'),
-    		'start' => '2016-09-07T01:00:00',
-            'end' => '2016-09-07T02:00:00',
-    	),
-    );
-}
-
 if(isset($_POST['submit'])) {
     insert(array(array(
         'title' => $_POST['title'],
         'resourceId' => $_POST['resourceId'],
-        'start' => $_POST['start'],
-        'end' => $_POST['end'],
+        'slot' => $_POST['slot'],
     )));
     create_event_json();
 }
@@ -425,8 +418,7 @@ if(isset($_POST['delete'])) {
     delete($_POST['to_delete']);
 }
 
-// insert($dummy_data);
-get();
+get("SELECT * FROM booking", "SHOW COLUMNS FROM booking");
 create_event_json();
 
 echo $getjsonbtn;

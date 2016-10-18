@@ -13,5 +13,6 @@ Functionality
 -------
 * View current bookings
 * Add booking entry
-* Check if booking conflicts with current ones
+* Check if booking conflicts with current ones (WIP)
 * Export booking data to `*json` format
+* Create md5 attribute for given JSON file and export as *filename*_md5.json
