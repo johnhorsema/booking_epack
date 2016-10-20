@@ -186,9 +186,6 @@ $html_footer = '
         <div class="container">
             <p class="navbar-text pull-left">© 2016 - EPACK Lab Equipment Booking System
             </p>
-            <p class="navbar-text pull-right">
-                <a href="http://ihome.ust.hk/~jcema/epack">EPACK Lab</a>
-            </p>
         </div>
     </div>
     <!-- jQuery Version 1.11.1 -->
@@ -203,6 +200,8 @@ $html_footer = '
     <script src="fullcalendar-scheduler-1.4.0/scheduler.min.js"></script>
     <!-- Utility -->
     <script src="utility.js"></script>
+    <!-- Client Add jQuery code -->
+    <script src="clientadd.js"></script>
 </body>
 
 </html>
@@ -213,7 +212,31 @@ $client_add = '
         <div class="row">
             <div class="col-lg-12 text-left">
                 <h2>Booking Helper</h2>
-
+                <div style="padding: 10px;">
+                    <ul class="nav nav-pills">
+                        <li><a class="btn">Select the day</a></li>
+                        <li><a class="btn">Select the time</a></li>
+                    </ul>
+                    <ul class="nav lists">
+                    <form action="'.$_SERVER['PHP_SELF'].'" method="post">
+                    <li id="1">
+                      <select class="form-control" name="helper-date">
+                            <option value="2016-10-20">Today</option>
+                            <option value="2016-10-21">Tomorrow</option>
+                            <option value="2016-10-27">Next week</option>
+                            <option value="other">Custom...</option>
+                      </select>
+                    </li>
+                    <li id="2">
+                      <select class="form-control" name="helper-slot">
+                        <option value="AM">Morning</option>
+                        <option value="NOON">Afternoon</option>
+                        <option value="PM">Night</option>
+                      </select>
+                    </li>
+                    </form>
+                    </ul>
+                </div>
             </div>
         </div>
 </div>
