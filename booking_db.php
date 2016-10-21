@@ -1,14 +1,30 @@
 #!/usr/local/bin/php 
 <?php
 //Debugging
-ini_set('display_startup_errors', 1);
-ini_set('display_errors', 1);
-error_reporting(-1);
+// ini_set('display_startup_errors', 1);
+// ini_set('display_errors', 1);
+// error_reporting(-1);
 
 include('JSON.php');
 
 $php_ver = 'Current PHP version: ' . phpversion();
 $site_title = 'Equipment Booking System - EPACK Lab';
+$config = array(
+    'CLEANSTART' => false,
+    'VIEWTABLE' => false,
+    'EXPORTJSON' => false,
+
+);
+$db_config = array(
+    // required
+    'database_type' => 'mysql',
+    'database_name' => '128938db',
+    'server' => 'ihomedb.ust.hk',
+    'username' => '128938',
+    'password' => '128938',
+    'charset' => 'utf8',
+);
+
 
 $html_head = '
 <!DOCTYPE html>
@@ -29,6 +45,12 @@ $html_head = '
 
     <!-- Bootstrap Theme -->
     <link href="https://cdn.jsdelivr.net/bootswatch/3.3.7/yeti/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+    .typeahead.dropdown-menu{
+        width: 100%;
+    }
+    </style>
 
     <!-- Fullcalendar CSS -->
     <link href="fullcalendar-scheduler-1.4.0/lib/fullcalendar.min.css" rel="stylesheet">
@@ -73,10 +95,10 @@ $html_nav = '
             <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                 <ul class="nav navbar-nav">
                     <li>
-                        <a href="#view">View Booking(s)</a>
+                        <a href="#view">View</a>
                     </li>
                     <li>
-                        <a href="#add">Add Booking</a>
+                        <a href="#book">Book</a>
                     </li>
                     <li>
                         <a target="_blank" href="resources_md5.php">Reset Resources</a>
@@ -103,9 +125,9 @@ $html_banner = '
                 <h1>'.$site_title.'</h1>
                 <p class="lead">For view/add of equipment booking.</p>
                 <ul class="list-unstyled">
-                    <li>Bootstrap v3.3.7</li>
+                    <!--<li>Bootstrap v3.3.7</li>
                     <li>jQuery v1.11.1</li>
-                    <li>'.$php_ver.'</li>
+                    <li>'.$php_ver.'</li>-->
                 </ul>
             </div>
         </div>
@@ -131,55 +153,25 @@ $html_view_foot = '
     <!-- /.container -->
 ';
 
-function generate_resources() {
+function get_resources() {
     $json_service = new Services_JSON();
     $input_file = 'resources_md5.json';
     $string = file_get_contents($input_file);
     $json_a = $json_service->decode($string);
+    return $json_a;
+}
+
+function generate_resources_options() {
+    $resources = get_resources();
     $result = '';
-    if(!count($json_a)){
+    if(!count($resources)){
         return '<option>No Resource(s) found!</option>';
     }
-    foreach($json_a as $item) {
+    foreach($resources as $item) {
         $result = $result.'<option value="'.$item->md5.'">'.$item->title.'</option>';
     }
     return $result;
 }
-
-$html_add = '
-    <div class="container" id="add">
-
-        <div class="row">
-            <div class="col-lg-12 text-left">
-                <h2>Add Booking</h2>
-                    <form action="'.$_SERVER['PHP_SELF'].'" method="post">
-                        <div class="form-group">
-                            <label for="title">Name:</label>
-                            <input type="text" class="form-control" name="title">
-                        </div>
-                        <div class="form-group">
-                            <label for="resourceId">Equipment:</label>
-                            <select class="form-control" name="resourceId">
-                                '.generate_resources().'
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="slot">Timeslot:</label>
-                            <select class="form-control" name="slot">
-                                <option value="AM">Morning</option>
-                                <option value="NOON">Afternoon</option>
-                                <option value="PM">Night</option>
-                            </select>
-                        </div>
-                        <button type="submit" name="submit" class="btn btn-default">Submit</button>
-                    </form>
-            </div>
-        </div>
-        <!-- /.row -->
-
-    </div>
-    <!-- /.container -->
-';
 
 $html_footer = '
     <div class="navbar navbar-default">
@@ -198,61 +190,81 @@ $html_footer = '
     <script src="fullcalendar-scheduler-1.4.0/lib/fullcalendar.min.js"></script>
     <!-- Fullcalendar Scheduler JS -->
     <script src="fullcalendar-scheduler-1.4.0/scheduler.min.js"></script>
+    <!-- Typeahead -->
+    <script src="bootstrap3-typeahead.min.js"></script>
     <!-- Utility -->
     <script src="utility.js"></script>
-    <!-- Client Add jQuery code -->
-    <script src="clientadd.js"></script>
 </body>
 
 </html>
 ';
 
 $client_add = '
-<div class="container">
+<div class="container" id="book">
         <div class="row">
             <div class="col-lg-12 text-left">
-                <h2>Booking Helper</h2>
+                <h2>Book</h2>
                 <div style="padding: 10px;">
                     <ul class="nav nav-pills">
+                        <li><a class="btn">Username</a></li>
                         <li><a class="btn">Select the day</a></li>
                         <li><a class="btn">Select the time</a></li>
+                        <li><a class="btn">Select equipment</a></li>
                     </ul>
-                    <ul class="nav lists">
                     <form action="'.$_SERVER['PHP_SELF'].'" method="post">
-                    <li id="1">
-                      <select class="form-control" name="helper-date">
-                            <option value="2016-10-20">Today</option>
-                            <option value="2016-10-21">Tomorrow</option>
-                            <option value="2016-10-27">Next week</option>
-                            <option value="other">Custom...</option>
-                      </select>
-                    </li>
-                    <li id="2">
-                      <select class="form-control" name="helper-slot">
-                        <option value="AM">Morning</option>
-                        <option value="NOON">Afternoon</option>
-                        <option value="PM">Night</option>
-                      </select>
-                    </li>
-                    </form>
-                    </ul>
+                        <ul class="nav lists">
+                            <li id="1">
+                                <input class="form-control" name="helper-name" type="text" placeholder="Username">
+                            </li>
+                            <li id="2">
+                              <select class="form-control" name="helper-date">
+                                    <option class="today">Today</option>
+                                    <option class="tomorrow">Tomorrow</option>
+                                    <option class="nextweek">Next week</option>
+                                    <option value="other">Custom...</option>
+                              </select>
+                            </li>
+                            <li id="3">
+                              <select class="form-control" name="helper-slot">
+                                <option value="AM">Morning</option>
+                                <option value="NOON">Afternoon</option>
+                                <option value="PM">Night</option>
+                              </select>
+                            </li>
+                            <li id="4">
+                                <input class="form-control typeahead"  data-provide="typeahead" name="helper-equip" type="text" placeholder="Name of equipment">
+                            </li>
+                        </ul>
+                        <p></p>
+                        <a class="btn btn-default btn-block" data-toggle="modal" data-target="#confirmation">Next</a>
                 </div>
             </div>
         </div>
 </div>
 ';
 
-$close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
+$client_modal = '
+<div class="modal fade" tabindex="-1" role="dialog" id="confirmation">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Confirm Booking</h4>
+      </div>
+      <div class="modal-body">
+        <p id="confirmed-data"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Dismiss</button>
+        <button type="submit" name="submit" id="confirm-btn" class="btn btn-success">Submit</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+</form>
+';
 
-$db_config = array(
-	// required
-	'database_type' => 'mysql',
-	'database_name' => '128938db',
-	'server' => 'ihomedb.ust.hk',
-	'username' => '128938',
-	'password' => '128938',
-	'charset' => 'utf8',
-);
+$close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
 
 function generate_start_end($s, $e, $d) {
     $format = 'Y-m-d\TH:i:s';
@@ -280,9 +292,9 @@ function convert_slot($input, $date) {
 
 echo $html_head.$html_nav.$html_banner;
 
-// Form POST actions
+// POST booking actions
 if(isset($_POST['submit'])) {
-    echo '<div class="alert alert-warning text-center">New entry added: <code>'.$_POST['title'].'</code> booked <code>'.$_POST['resourceId'].'</code>'.$close_button.'</div>';
+    echo '<div class="alert alert-warning text-center">New entry added: <code>'.$_POST['helper-name'].'</code> booked <code>'.$_POST['helper-equip'].'</code> on <code>'.$_POST['helper-date'].'</code>'.$close_button.'</div>';
 }
 
 $link = mysql_connect($db_config['server'], $db_config['username'], $db_config['password'])  
@@ -332,7 +344,7 @@ function mysql_insert($table, $inserts) {
 function insert($data) {
     $close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
 	foreach($data as $item) {
-        $start_end = convert_slot($item['slot'],'2016-09-07');
+        $start_end = convert_slot($item['slot'],$item['date']);
 		mysql_insert('booking', array(
 		    'title' => $item['title'],
 		    'resourceId' => $item['resourceId'],
@@ -377,7 +389,7 @@ function create_event_json(){
 }
 
 function delete_button($id){
-    echo '<td><form action="'.$_SERVER['PHP_SELF'].'" method="post">
+    return '<td><form action="'.$_SERVER['PHP_SELF'].'" method="post">
         <input type="hidden" name="to_delete" value="'.$id.'">
         <button type="submit" name="delete" class="btn btn-danger btn-xs"><span class="glyphicon glyphicon-trash"></span></button>
     </form></td>';
@@ -399,7 +411,7 @@ function get($sql_val, $sql_key) {
             foreach($row as $rowitem){
                 echo "<td>".$rowitem."</td>";
             }
-            delete_button($row[0]);
+            echo delete_button($row[0]);
 			echo "</tr>";
 		}
         echo "</table>";
@@ -419,20 +431,21 @@ $getjsonbtn = '
         </div>
 ';
 
-if(!isset($_POST['submit'])) {
-    // CLEANSTART: Enable for clean start
-    // clear();
-    // drop();
-    // create();
+if(!isset($_POST['submit']) && $config['CLEANSTART']) {
+    // CONFIG:CLEANSTART: Enable for clean start
+    clear();
+    drop();
+    create();
 }
 
 echo $html_view_head;
 
 if(isset($_POST['submit'])) {
     insert(array(array(
-        'title' => $_POST['title'],
-        'resourceId' => $_POST['resourceId'],
-        'slot' => $_POST['slot'],
+        'title' => $_POST['helper-name'],
+        'resourceId' => md5($_POST['helper-equip']),
+        'slot' => $_POST['helper-slot'],
+        'date' => $_POST['helper-date'],
     )));
     create_event_json();
 }
@@ -441,33 +454,31 @@ if(isset($_POST['delete'])) {
     delete($_POST['to_delete']);
 }
 
-get("SELECT * FROM booking", "SHOW COLUMNS FROM booking");
+// CONFIG:VIEWTABLE: Show booking records in a table
+if($config['VIEWTABLE']){
+    get("SELECT * FROM booking", "SHOW COLUMNS FROM booking");
+    // CONFIG:EXPORTJSON: Enable export booking as .json file
+    if($config['EXPORTJSON']){
+        echo $getjsonbtn;
+        if(isset($_POST['json'])) {
+            $json = get_json();
+            $filename = 'booking_'.time().'.json';
+            $fp = fopen($filename, 'w');
+            fwrite($fp, $json);
+            fclose($fp);
+            echo '<div class="alert alert-info text-center">JSON export created at <a href="./'.$filename.'"><code>'.$filename.'</code></a> <strong>(click to download)</strong>'.$close_button.'</div>';
+        }
+    }
+}
 create_event_json();
 
-echo $getjsonbtn;
-
-if(isset($_POST['json'])) {
-    $json = get_json();
-    $filename = 'booking_'.time().'.json';
-    $fp = fopen($filename, 'w');
-    fwrite($fp, $json);
-    fclose($fp);
-    echo '<div class="alert alert-info text-center">JSON export created at <a href="./'.$filename.'"><code>'.$filename.'</code></a> <strong>(click to download)</strong>'.$close_button.'</div>';
-}
+echo '<div class="container"><div class="row"><div class="col-md-12" id="calendar"></div></div></div>';
 
 echo $html_view_foot;
 
 echo '<hr />';
 
-echo '<div class="container"><div class="row"><div class="col-md-12" id="calendar"></div></div></div>';
-
-echo '<hr />';
-
-echo $html_add;
-
-echo '<hr />';
-
-echo $client_add;
+echo $client_add.$client_modal;
 
 echo '<hr />';
 
