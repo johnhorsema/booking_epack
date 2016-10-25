@@ -13,7 +13,20 @@ $config = array(
     'CLEANSTART' => false,
     'VIEWTABLE' => false,
     'EXPORTJSON' => false,
-
+    'TIMESLOT' => array(
+        'AM' => array(
+            'start' => '09',
+            'end' => '11'
+        ),
+        'NOON' => array(
+            'start' => '13',
+            'end' => '15'
+        ),
+        'PM' => array(
+            'start' => '16',
+            'end' => '18'
+        )
+    )
 );
 $db_config = array(
     // required
@@ -267,6 +280,7 @@ $client_modal = '
 $close_button = '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span></button>';
 
 function generate_start_end($s, $e, $d) {
+    var_dump($s, $e);
     $format = 'Y-m-d\TH:i:s';
     $tuple = array(
         'start' => date($format, strtotime($d.' '.$s.':00:00')),
@@ -276,15 +290,16 @@ function generate_start_end($s, $e, $d) {
 }
 
 function convert_slot($input, $date) {
+    global $config;
     switch($input) {
         case 'AM':
-            $tuple = generate_start_end('09','11',$date);
+            $tuple = generate_start_end($config['TIMESLOT']['AM']['start'],$config['TIMESLOT']['AM']['end'],$date);
             break;
         case 'NOON':
-            $tuple = generate_start_end('13','15',$date);
+            $tuple = generate_start_end($config['TIMESLOT']['NOON']['start'],$config['TIMESLOT']['NOON']['end'],$date);
             break;
         case 'PM':
-            $tuple = generate_start_end('16','18',$date);
+            $tuple = generate_start_end($config['TIMESLOT']['PM']['start'],$config['TIMESLOT']['PM']['end'],$date);
             break;
     }
     return $tuple;
